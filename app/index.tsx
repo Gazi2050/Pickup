@@ -9,7 +9,9 @@ export default function Index() {
         alignItems: "center",
       }}
     >
-      <Text className="text-black text-center font-bold">Mobile app</Text>
+      <Text className="text-black text-center font-bold text-3xl">
+        Mobile app
+      </Text>
     </View>
   );
 }
