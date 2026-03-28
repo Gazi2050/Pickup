@@ -72,11 +72,12 @@ export default function WelcomeScreen() {
         </View>
       </View>
 
-      <CustomButton
-        title={isLastSlide ? "Get Started" : "Next"}
-        onPress={goNext}
-        className="w-11/12 mt-10 mb-5"
-      />
+      <View className="w-full px-5 mt-10 mb-5">
+        <CustomButton
+          title={isLastSlide ? "Get Started" : "Next"}
+          onPress={goNext}
+        />
+      </View>
     </SafeAreaView>
   );
 }
