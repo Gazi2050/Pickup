@@ -1,5 +1,6 @@
 import { useOAuth } from "@clerk/clerk-expo";
 import { router } from "expo-router";
+import { useState } from "react";
 import { Alert, Image, Text, View } from "react-native";
 
 import CustomButton from "@/components/CustomButton";
@@ -8,28 +9,38 @@ import { googleOAuth } from "@/lib/auth";
 
 type OAuthProps = {
   flow?: "sign-in" | "sign-up";
+  disabled?: boolean;
 };
 
-const OAuth = ({ flow = "sign-in" }: OAuthProps) => {
+const OAuth = ({ flow = "sign-in", disabled = false }: OAuthProps) => {
   const { startOAuthFlow } = useOAuth({ strategy: "oauth_google" });
+  const [googleLoading, setGoogleLoading] = useState(false);
   const googleTitle =
     flow === "sign-up" ? "Sign up with Google" : "Log In with Google";
+  const googleLoadingTitle =
+    flow === "sign-up" ? "Signing up with Google…" : "Signing in with Google…";
 
   const handleGoogleSignIn = async () => {
-    const result = await googleOAuth(startOAuthFlow);
+    if (disabled || googleLoading) return;
+    setGoogleLoading(true);
+    try {
+      const result = await googleOAuth(startOAuthFlow);
 
-    if (result.code === "session_exists") {
-      Alert.alert("Success", "Session exists. Redirecting to home screen.");
-      router.replace("/(root)/(tabs)/home");
-      return;
+      if (result.code === "session_exists") {
+        Alert.alert("Success", "Session exists. Redirecting to home screen.");
+        router.replace("/(root)/(tabs)/home");
+        return;
+      }
+
+      if (result.success) {
+        router.replace("/(root)/(tabs)/home");
+        return;
+      }
+
+      Alert.alert("Error", result.message);
+    } finally {
+      setGoogleLoading(false);
     }
-
-    if (result.success) {
-      router.replace("/(root)/(tabs)/home");
-      return;
-    }
-
-    Alert.alert("Error", result.message);
   };
 
   return (
@@ -42,6 +53,9 @@ const OAuth = ({ flow = "sign-in" }: OAuthProps) => {
 
       <CustomButton
         title={googleTitle}
+        loadingTitle={googleLoadingTitle}
+        loading={googleLoading}
+        disabled={disabled}
         className="mt-5 w-full shadow-none"
         IconLeft={() => (
           <Image

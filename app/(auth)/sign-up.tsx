@@ -1,14 +1,27 @@
 import { useSignUp } from "@clerk/clerk-expo";
 import { Link, router } from "expo-router";
-import { useState } from "react";
-import { Alert, Image, ScrollView, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import {
+  Alert,
+  Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import { ReactNativeModal } from "react-native-modal";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import CustomButton from "@/components/CustomButton";
 import InputField from "@/components/InputField";
 import OAuth from "@/components/OAuth";
 import { icons, images } from "@/constants";
 import { fetchAPI } from "@/lib/fetch";
+
+const HERO_EXPANDED = 250;
+const HERO_COLLAPSED = 88;
 
 export default function SignUpScreen() {
   const { isLoaded, signUp, setActive } = useSignUp();
@@ -24,9 +37,71 @@ export default function SignUpScreen() {
     error: "",
     code: "",
   });
+  const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView>(null);
+  const passwordOffsetInForm = useRef(0);
+  const passwordFieldFocused = useRef(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [signUpLoading, setSignUpLoading] = useState(false);
+  const [verifyLoading, setVerifyLoading] = useState(false);
+
+  const heroHeight = keyboardOpen ? HERO_COLLAPSED : HERO_EXPANDED;
+  const contentPaddingBottom = Math.max(40, keyboardHeight + 48);
+
+  const scrollPasswordIntoView = (delayMs?: number) => {
+    const delay =
+      delayMs ?? (Platform.OS === "ios" ? 160 : 260);
+    setTimeout(() => {
+      const collapseNudge = keyboardOpen ? 88 : 0;
+      const targetY = Math.max(
+        0,
+        heroHeight +
+          passwordOffsetInForm.current -
+          12 +
+          collapseNudge,
+      );
+      scrollRef.current?.scrollTo({
+        y: targetY,
+        animated: true,
+      });
+    }, delay);
+  };
+
+  useEffect(() => {
+    const showEvt =
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvt =
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const showSub = Keyboard.addListener(showEvt, (e) => {
+      setKeyboardOpen(true);
+      setKeyboardHeight(e.endCoordinates.height);
+      if (passwordFieldFocused.current) {
+        const delay = Platform.OS === "ios" ? 140 : 220;
+        setTimeout(() => {
+          const targetY = Math.max(
+            0,
+            HERO_COLLAPSED + passwordOffsetInForm.current - 12 + 88,
+          );
+          scrollRef.current?.scrollTo({ y: targetY, animated: true });
+        }, delay);
+      }
+    });
+    const hideSub = Keyboard.addListener(hideEvt, () => {
+      setKeyboardOpen(false);
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const onSignUpPress = async () => {
     if (!isLoaded) return;
+    setSignUpLoading(true);
     try {
       await signUp.create({
         emailAddress: form.email,
@@ -41,11 +116,14 @@ export default function SignUpScreen() {
       console.log(JSON.stringify(err, null, 2));
       const e = err as { errors?: { longMessage: string }[] };
       Alert.alert("Error", e.errors?.[0]?.longMessage ?? "Sign up failed");
+    } finally {
+      setSignUpLoading(false);
     }
   };
 
   const onPressVerify = async () => {
     if (!isLoaded) return;
+    setVerifyLoading(true);
     try {
       const completeSignUp = await signUp.attemptEmailAddressVerification({
         code: verification.code,
@@ -86,14 +164,37 @@ export default function SignUpScreen() {
         error: e.errors?.[0]?.longMessage ?? "Verification failed",
         state: "failed",
       }));
+    } finally {
+      setVerifyLoading(false);
     }
   };
 
   return (
-    <ScrollView className="flex-1 bg-white">
+    <KeyboardAvoidingView
+      className="flex-1 bg-white"
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 8 : 0}
+    >
+      <ScrollView
+        ref={scrollRef}
+        className="flex-1 bg-white"
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: contentPaddingBottom }}
+        showsVerticalScrollIndicator={false}
+      >
       <View className="flex-1 bg-white">
-        <View className="relative w-full h-[250px]">
-          <Image source={images.signUpCar} className="z-0 w-full h-[250px]" />
+        <View
+          className="relative w-full overflow-hidden"
+          style={{ height: heroHeight }}
+        >
+          <Image
+            source={images.signUpCar}
+            className="w-full"
+            resizeMode="cover"
+            style={{ width: "100%", height: heroHeight }}
+          />
           <Text className="text-2xl text-black font-JakartaSemiBold absolute bottom-5 left-5">
             Create Your Account
           </Text>
@@ -114,21 +215,40 @@ export default function SignUpScreen() {
             value={form.email}
             onChangeText={(value) => setForm({ ...form, email: value })}
           />
-          <InputField
-            label="Password"
-            placeholder="Enter password"
-            icon={icons.lock}
-            secureTextEntry
-            textContentType="password"
-            value={form.password}
-            onChangeText={(value) => setForm({ ...form, password: value })}
-          />
+          <View
+            onLayout={(e) => {
+              passwordOffsetInForm.current = e.nativeEvent.layout.y;
+            }}
+          >
+            <InputField
+              label="Password"
+              placeholder="Enter password"
+              icon={icons.lock}
+              secureTextEntry
+              showPasswordToggle
+              textContentType="password"
+              value={form.password}
+              onChangeText={(value) => setForm({ ...form, password: value })}
+              onFocus={() => {
+                passwordFieldFocused.current = true;
+                scrollPasswordIntoView();
+              }}
+              onBlur={() => {
+                passwordFieldFocused.current = false;
+              }}
+            />
+          </View>
           <CustomButton
             title="Sign Up"
+            loadingTitle="Creating account…"
+            loading={signUpLoading}
             onPress={onSignUpPress}
             className="mt-6"
           />
-          <OAuth flow="sign-up" />
+          <OAuth
+            flow="sign-up"
+            disabled={signUpLoading || verifyLoading}
+          />
 
           <Link
             href="/(auth)/sign-in"
@@ -164,6 +284,8 @@ export default function SignUpScreen() {
             ) : null}
             <CustomButton
               title="Verify Email"
+              loadingTitle="Verifying…"
+              loading={verifyLoading}
               onPress={onPressVerify}
               className="mt-5 bg-success-500"
             />
@@ -190,6 +312,7 @@ export default function SignUpScreen() {
           </View>
         </ReactNativeModal>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }

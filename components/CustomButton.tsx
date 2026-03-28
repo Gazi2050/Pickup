@@ -1,4 +1,4 @@
-import { Text, TouchableOpacity } from "react-native";
+import { ActivityIndicator, Text, TouchableOpacity } from "react-native";
 
 import type { ButtonProps } from "@/types/type";
 
@@ -32,6 +32,16 @@ const getTextVariantStyle = (variant: ButtonProps["textVariant"]) => {
   }
 };
 
+const getActivityIndicatorColor = (
+  bgVariant: ButtonProps["bgVariant"],
+  textVariant: ButtonProps["textVariant"],
+): string => {
+  if (bgVariant === "outline" || textVariant === "primary") {
+    return "#0286FF";
+  }
+  return "#ffffff";
+};
+
 const CustomButton = ({
   onPress,
   title,
@@ -40,19 +50,35 @@ const CustomButton = ({
   IconLeft,
   IconRight,
   className,
+  loading = false,
+  loadingTitle,
+  disabled,
   ...props
 }: ButtonProps) => {
+  const showSpinner = loading;
+  const label = showSpinner ? (loadingTitle ?? title) : title;
+  const spinnerColor = getActivityIndicatorColor(bgVariant, textVariant);
+
   return (
     <TouchableOpacity
-      onPress={onPress}
-      className={`w-full rounded-full p-3 flex flex-row justify-center items-center shadow-md shadow-neutral-400/70 ${getBgVariantStyle(bgVariant)} ${className ?? ""}`}
       {...props}
+      onPress={onPress}
+      disabled={!!disabled || showSpinner}
+      className={`w-full rounded-full p-3 flex flex-row justify-center items-center shadow-md shadow-neutral-400/70 ${getBgVariantStyle(bgVariant)} ${showSpinner ? "opacity-90" : ""} ${className ?? ""}`}
     >
-      {IconLeft ? <IconLeft /> : null}
+      {showSpinner ? (
+        <ActivityIndicator
+          color={spinnerColor}
+          size="small"
+          style={{ marginRight: 10 }}
+        />
+      ) : IconLeft ? (
+        <IconLeft />
+      ) : null}
       <Text className={`text-lg font-bold ${getTextVariantStyle(textVariant)}`}>
-        {title}
+        {label}
       </Text>
-      {IconRight ? <IconRight /> : null}
+      {!showSpinner && IconRight ? <IconRight /> : null}
     </TouchableOpacity>
   );
 };
