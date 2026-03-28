@@ -6,8 +6,14 @@ import CustomButton from "@/components/CustomButton";
 import { icons } from "@/constants";
 import { googleOAuth } from "@/lib/auth";
 
-const OAuth = () => {
+type OAuthProps = {
+  flow?: "sign-in" | "sign-up";
+};
+
+const OAuth = ({ flow = "sign-in" }: OAuthProps) => {
   const { startOAuthFlow } = useOAuth({ strategy: "oauth_google" });
+  const googleTitle =
+    flow === "sign-up" ? "Sign up with Google" : "Log In with Google";
 
   const handleGoogleSignIn = async () => {
     const result = await googleOAuth(startOAuthFlow);
@@ -35,7 +41,7 @@ const OAuth = () => {
       </View>
 
       <CustomButton
-        title="Log In with Google"
+        title={googleTitle}
         className="mt-5 w-full shadow-none"
         IconLeft={() => (
           <Image

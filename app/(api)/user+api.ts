@@ -1,14 +1,18 @@
 /**
- * Neon: ensure a `users` table exists, e.g.
- *
- * CREATE TABLE users (
- *   id SERIAL PRIMARY KEY,
- *   name TEXT NOT NULL,
- *   email TEXT NOT NULL,
- *   clerk_id TEXT NOT NULL UNIQUE
- * );
+ * Schema is managed via Drizzle (`lib/db/schema.ts`).
+ * Apply to Neon: `pnpm db:push` (requires DATABASE_URL in env).
  */
-import { neon } from "@neondatabase/serverless";
+import { createDb } from "@/lib/db";
+import { users } from "@/lib/db/schema";
+
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code: string }).code === "23505"
+  );
+}
 
 export async function POST(request: Request) {
   try {
@@ -20,7 +24,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const sql = neon(databaseUrl);
+    const db = createDb(databaseUrl);
     const { name, email, clerkId } = await request.json();
 
     if (!name || !email || !clerkId) {
@@ -30,21 +34,24 @@ export async function POST(request: Request) {
       );
     }
 
-    const response = await sql`
-      INSERT INTO users (
-        name,
-        email,
-        clerk_id
-      )
-      VALUES (
-        ${name},
-        ${email},
-        ${clerkId}
-      );`;
+    try {
+      const [row] = await db
+        .insert(users)
+        .values({ name, email, clerkId })
+        .returning();
 
-    return new Response(JSON.stringify({ data: response }), {
-      status: 201,
-    });
+      return new Response(JSON.stringify({ data: row }), {
+        status: 201,
+      });
+    } catch (insertError) {
+      if (isUniqueViolation(insertError)) {
+        return Response.json(
+          { error: "User with this clerk_id already exists" },
+          { status: 409 },
+        );
+      }
+      throw insertError;
+    }
   } catch (error) {
     console.error("Error creating user:", error);
     return Response.json({ error: "Internal Server Error" }, { status: 500 });

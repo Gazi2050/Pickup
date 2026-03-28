@@ -128,7 +128,7 @@ export default function SignUpScreen() {
             onPress={onSignUpPress}
             className="mt-6"
           />
-          <OAuth />
+          <OAuth flow="sign-up" />
 
           <Link
             href="/(auth)/sign-in"
