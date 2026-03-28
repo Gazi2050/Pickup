@@ -34,7 +34,7 @@ const TabIcon = ({
     <View
       className={`h-12 w-12 items-center justify-center rounded-full ${
         focused
-          ? "border border-white bg-general-400 shadow-md shadow-black/25"
+          ? "bg-general-400 shadow-md shadow-black/25"
           : ""
       }`}
     >
