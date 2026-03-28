@@ -1,5 +1,20 @@
 import type { ComponentType } from "react";
-import type { TouchableOpacityProps } from "react-native";
+import type {
+  ImageSourcePropType,
+  TextInputProps,
+  TouchableOpacityProps,
+} from "react-native";
+
+export interface InputFieldProps extends TextInputProps {
+  label: string;
+  icon?: ImageSourcePropType;
+  secureTextEntry?: boolean;
+  labelStyle?: string;
+  containerStyle?: string;
+  inputStyle?: string;
+  iconStyle?: string;
+  className?: string;
+}
 
 export interface ButtonProps extends TouchableOpacityProps {
   title: string;
